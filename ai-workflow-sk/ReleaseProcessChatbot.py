@@ -34,7 +34,7 @@ class ChatBot:
             service_id=self.service_id,
             deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-            base_url=os.getenv("AZURE_OPENAI_ENDPOINT")
+            endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
         )
         self.kernel.add_service(self.chat_completion)
 
