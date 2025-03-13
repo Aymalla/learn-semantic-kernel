@@ -1,15 +1,16 @@
+import json
 import logging
 import os
 
 from releaseProcessPlugin import ReleaseProcessPlugin
 from semantic_kernel import Kernel
 from semantic_kernel.utils.logging import setup_logging
-from semantic_kernel.functions import kernel_function
 from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
 from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
 from semantic_kernel.connectors.ai.chat_completion_client_base import ChatCompletionClientBase
-from semantic_kernel.contents.chat_history import ChatHistory
+from semantic_kernel.contents import ChatHistory, ChatMessageContent, FunctionCallContent, FunctionResultContent
 from semantic_kernel.functions.kernel_arguments import KernelArguments
+from semantic_kernel.agents import ChatCompletionAgent
 
 from semantic_kernel.connectors.ai.open_ai.prompt_execution_settings.azure_chat_prompt_execution_settings import (
     AzureChatPromptExecutionSettings,
@@ -22,6 +23,8 @@ class ChatBot:
     kernel: Kernel
     chat_completion: ChatCompletionClientBase
     execution_settings: AzureChatPromptExecutionSettings
+    agent: ChatCompletionAgent
+    service_id: str = "chat-completion"
 
     def __init__(self):
         # Initialize the kernel
@@ -32,15 +35,12 @@ class ChatBot:
 
         # Add Azure OpenAI chat completion
         self.chat_completion = AzureChatCompletion(
+            service_id=self.service_id,
             deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-            base_url=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            base_url=os.getenv("AZURE_OPENAI_ENDPOINT")
         )
         self.kernel.add_service(self.chat_completion)
-
-        # Set the logging level for  semantic_kernel.kernel to DEBUG.
-        setup_logging()
-        logging.getLogger("kernel").setLevel(logging.DEBUG)
 
         # Add a plugin (the LightsPlugin class is defined below)
         self.kernel.add_plugin(
@@ -53,7 +53,19 @@ class ChatBot:
         self.execution_settings.function_choice_behavior = FunctionChoiceBehavior.Auto()
 
         # Load the workflow description
-        self.__load_workflow_desciption()
+        instructions = self.__load_instructions()
+
+        # Create the agent
+        self.agent = ChatCompletionAgent(
+            kernel=self.kernel,
+            name="ReleaseExpertAgent",
+            instructions=instructions,
+            arguments=KernelArguments(settings=self.execution_settings)
+        )
+
+        # Set the logging level for  semantic_kernel.kernel to DEBUG.
+        setup_logging()
+        logging.getLogger("kernel").setLevel(logging.DEBUG)
 
     async def chat(self, message, history):
 
@@ -61,18 +73,17 @@ class ChatBot:
         self.history.add_user_message(message)
 
         # Get the response from the AI
-        result = await self.chat_completion.get_chat_message_content(
-            chat_history=self.history,
-            settings=self.execution_settings,
-            kernel=self.kernel,
-        )
+        response = await self.agent.get_response(self.history)
+
+        # Handle function calls if any
+        self.__handle_function_calls(response)
 
         # Add the message from the agent to the chat history
-        self.history.add_message(result)
+        self.history.add_message(response)
 
-        return str(result)
+        return str(response)
 
-    def __load_workflow_desciption(self):
+    def __load_instructions(self) -> str:
         # Load the workflow from a file
         with open('workflows/release-workflow.txt', 'r') as file:
             release_process_definition = file.read()
@@ -84,5 +95,33 @@ class ChatBot:
                 POLICY:
                 {release_process_definition}
                 """
-            # Add the system message to the history
-            self.history.add_system_message(instructions)
+            return instructions
+
+    def __handle_function_calls(self, response):
+        """ Handle function calls from the response.
+        This method checks if the last message in the history contains a function call.
+        extension to add more logic to handle special uses cases like clear history objects
+        Args:
+            response (_type_): _ChatMessageContent_: The response from the agent.
+        """
+        
+        if len(self.history) >= 2:
+            last_message = self.history.messages[-2].to_dict()
+            tool_calls = last_message.get("tool_calls", [])
+            for tool_call in tool_calls:
+                function_call = tool_call.get("function")
+                if function_call:
+                    # Check if the tool call is a function call
+                    function_name = function_call["name"]
+                    arguments = function_call["arguments"]
+                    if "start_over" in function_name:
+                        self.__start_over()
+
+    def __start_over(self):
+        # Clear the history
+        self.history.clear()
+        # Add the system message to the history
+        self.history.add_system_message(self.__load_instructions())
+        
+    def __print_history(self):
+        print([msg.to_dict() for msg in self.history.messages])
