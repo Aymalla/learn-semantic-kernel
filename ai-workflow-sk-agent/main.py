@@ -12,6 +12,7 @@ def main():
 
     # Create Gradio interface
     demo = gr.ChatInterface(
+        type="messages",
         fn=bot.chat,
         chatbot=gr.Chatbot(type="messages"),
         title="Phil, your Release Chatbot",

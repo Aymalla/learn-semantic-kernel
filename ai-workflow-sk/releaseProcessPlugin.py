@@ -1,8 +1,6 @@
-import string
 import uuid
 from typing import Annotated
 from semantic_kernel.functions import kernel_function
-from semantic_kernel.contents.chat_history import ChatHistory
 
 
 class ReleaseProcessPlugin:
@@ -11,7 +9,7 @@ class ReleaseProcessPlugin:
         name="start_over",
         description="Starts a new process to create a release for the user"
     )
-    def start_over(self, chatHistory: ChatHistory) -> str:
+    def start_over(self) -> str:
         return "Let's start over"
     
     @kernel_function(
@@ -63,8 +61,7 @@ class ReleaseProcessPlugin:
         name="search_previous_kmnrs",
         description="Searches for previously completed Changes (KMNRs) to use as reference for new Change Contexts / Change Objects (KITZ)"
     )
-    def search_previous_kmnrs(self,
-                                     search_query: Annotated[str, "Search query to find previous KMNRs."]):
+    def search_previous_kmnrs(self, search_query: Annotated[str, "Search query to find previous KMNRs."]):
         return [
             {
                 "id": str(uuid.uuid4()),
