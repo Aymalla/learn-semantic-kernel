@@ -19,31 +19,32 @@ endif
 help: ## 💬 This help message :)
 	grep -E '[a-zA-Z_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-23s\033[0m %s\n\n", $$1, $$2}'
 
-start-chatbot-sk: py-clean-cache ## 🚀 Start the chatbot
-	@echo "🚀 Starting the chatbot..."
-	@poetry run python ai-workflow-sk/main.py
-
-start-chatbot-sk-agent: py-clean-cache ## 🚀 Start the chatbot using sk-agent
-	@echo "🚀 Starting the chatbot..."
-	@poetry run python ai-workflow-sk-agent/main.py
-
-poetry-setup: ## 🎭 Setup poetry
+setup: ## 🎭 Setup poetry
 	@echo "🎭 Setting up poetry..."
 	@pip install -U pip setuptools
 	@pip install poetry
 	@poetry config virtualenvs.create false
+	@poetry install
 
-poetry-install: ## 📦 Install python packages
+install: ## 📦 Install python packages
 	@make clean-packages
 	@echo "📦 Installing python packages..."
 	@poetry install
 
-py-lint: ## 🕵️‍♂️ Run python linter
+lint: ## 🕵️‍♂️ Run python linter
 	@echo "🕵️‍♂️ Running python linter..."
 	@poetry run pyright
 
 py-clean-cache: ## 🧹 Clean python cache
 	@echo "🧹 Cleaning python cache..."
 	@find . -type d -name __pycache__ -exec rm -r {} \+
+
+chatbot: ## 🚀 Start the chatbot using sk
+	@echo "🚀 Starting the chatbot using sk..."
+	@poetry run python llm-workflow-orchestrator/ui.py --type chatbot
+
+chatbot-agent: ## 🚀 Start the chatbot using sk-agent
+	@echo "🚀 Starting the chatbot using sk-agent..."
+	@poetry run python llm-workflow-orchestrator/ui.py --type agent
 
 	

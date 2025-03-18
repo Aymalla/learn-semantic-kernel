@@ -9,9 +9,10 @@
         "vscode": {
             "extensions": [
                 "ms-python.python",
-                "ms-python.vscode-pylance"
+                "ms-python.vscode-pylance",
+                "ms-vscode.makefile-tools"
             ]
         }
     },
-    "postCreateCommand": "poetry install"
+    "postCreateCommand": "make setup"
 }
